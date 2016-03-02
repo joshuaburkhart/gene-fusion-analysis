@@ -3,32 +3,60 @@ Extract Gene Partners and Analyze Pairings
 
 Getting Data
 --------------------------------------------------------
-The data is found on the Catalogue of Somatic Mutations in Cancer (COSMIC)
-website here:
+The data is found on the Catalogue of Somatic Mutations in Cancer (COSMIC):
 
-> cancer.sanger.ac.uk/cancergenome/projects/cosmic/download.
+> http://cancer.sanger.ac.uk/cosmic/files?data=/files/grch38/cosmic/v76/CosmicFusionExport.tsv.gz
 
-The particular file is under the "Complete Fusion Export" tab. The data is
-described as:
+A user must register at http://cancer.sanger.ac.uk/cosmic/register before downloading.
 
-> All gene fusion mutation data from the current release in a tab
-> seperated file (CosmicFusionExport)
+File Description:
+
+```
+Sample name, Sample id, Id tumour - A sample is an instance of a portion of a tumour being examined for mutations. The sample name can be derived from a number of sources. In many cases it originates from the cell line name. Other sources include names assigned by the annotators, or an incremented number assigned during an anonymisation process. A number of samples can be taken from a single tumour and a number of tumours can be obtained from one individual. A sample id is used to identify a sample within the COSMIC database. There can be multiple ids, if the same sample has been entered into the database multiple times from different papers.
+
+Primary Site - The primary tissue/cancer from which the sample originated. More details on the tissue classification can be found here In COSMIC we have standard set of classification system for tissue types and sub types because they vary a lot between different papers.
+
+Site Subtype 1 - Further sub classification (level 1) of the samples tissue of origin.
+
+Site Subtype 2 - Further sub classification (level 2) of the samples tissue of origin.
+
+Site Subtype 3 - Further sub classification (level 3) of the samples tissue of origin.
+
+Primary Histology - The histological classification of the sample.
+
+Histology Subtype 1- Further histological classification (level 1) of the sample.
+
+Histology Subtype 2- Further histological classification (level 2) of the sample.
+
+Histology Subtype 3- Further histological classification (level 3) of the sample.
+
+Fusion Id - unique fusion mutation identifier
+
+Translocation Name - - Syntax describing the portions of mRNA present (in HGVS "r." format) from each gene (allows representation of UTR sequences).
+
+Fusion type - Type of mutation :
+
+   Inferred breakpoint - Inferred breakpoints are the genomic breakpoints when the literature reports more than one transcript per sample, implying significant alternative splicing of the mRNAs expressed from the fused gene pair or observed mRNA).
+
+Pubmed_PMID - The PUBMED ID for the paper that the sample was noted in.
+
+Id Study - Lists the unique Ids of studies that have involved this fusion mutation.
+```
 
 Once the data has been downloaded and uncompressed, the file you get is in a
-tab-separated format but R works better in comma-separated formatted files. I
-have taken the file into vim to quickly change the `.tsv` file into a `.csv`
-file with the following command: `:%s/\t/,/g`. The command will remove the tabs
-(denoted with `\t`) and replace the with commas (denoted with the comma symbol,
-",").
+tab-separated format but R works better in comma-separated formatted files.
+
+```
+$ cat CosmicFusionExport.tsv | tr '\t' ',' > CosmicFusionExport.csv
+```
 
 Load Fusion Data
 --------------------------------------------------------
-This analysis is meant to extract the gene pairings from the cosmicFusion data
-frame. Here is a snipet of the raw data:
+This analysis is meant to extract the gene pairings from the cosmicFusion data frame. Here is a snipet of the raw data:
 
 ```{r loadFusionData, cache=TRUE}
 # change the name of the file as necessary
-cosmicFusion <- read.csv("../data/CosmicFusionExport_v69_310514.csv",
+cosmicFusion <- read.csv("../data/CosmicFusionExport.csv",
                          header=TRUE,
                          row.names=NULL)
 
@@ -36,31 +64,16 @@ head(cosmicFusion) # see a sample of what the data looks like
 dim(cosmicFusion) # see how large the dataset
 ```
 
-Under "Fusion_Descriptions," there contains information about the directionality
-of the gene fusion. The letters before each set of brackets are the genes
-representing the 5' and 3' genes in the fusion. The 5' gene is first and the 3'
-gene is second.
-
-**NOTE: There was a error in the original data file imported in Line 11620.
-There was a missing left bracket so my separation algorithm implemented later on
-failed for that line.**
-
 Goal
 --------------------------------------------------------
-The goal of this document is to extract only the gene fusion pairings into a
-single data frame with the first column being the 5' gene partner and the second
-column be the 3' gene partner. Another element we must take into account is the
-"reason." The reason for each gene fusion is either "Observed mRNA" or "Inferred
-Breakpoint." We will focus on the "Observed mRNA" reasons to make the analysis
-easier.
+The goal of this document is to extract only the gene fusion pairings into a single data frame with the first column being the 5' gene partner and the second column be the 3' gene partner. Another element we must take into account is the "Fusion.Type." The Fusion.Type for each gene fusion is either "Observed mRNA" or "Inferred Breakpoint." We will focus on the "Observed mRNA" reasons to make the analysis easier.
 
 Focus on Description Data
 --------------------------------------------------------
-We know that we need to focus on the "Fusion_Description" and "Reason" columns
-so we shall save it in another data frame.
+We know that we need to focus on the "Translocation.Name" and "Fusion.Type" columns so we shall save it in another data frame.
 
 ```{r resaveData}
-fusionDescription <- cosmicFusion[,8:9] # save Descriptions and Reason
+fusionDescription <- cosmicFusion[,12:13] # save Descriptions and Reason
 head(fusionDescription) # show beginning of new data frame
 ```
 
@@ -100,7 +113,7 @@ Plan to Convert Single-line Elements to Data Frame
 Now that we have only the elements we need, we can proceed in separating the
 relavent data in the array we created.
 
-The general structure of the description is:
+The general structure of the Translocation.Name is:
 
 > 5GENE{ID}:r.BEGIN_END_3GENE{ID}:r.BEGIN_END
 
